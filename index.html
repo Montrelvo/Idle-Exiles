@@ -17,16 +17,11 @@
     <div class="layout">
       <section class="vault" aria-label="Frontier map">
         <div class="bar"><h2>The Uncharted Reach</h2><span id="survey"></span></div>
-        <section class="orders" aria-label="Expedition orders">
-          <div><p class="eyebrow">SELECTED LOCATION</p><h2 id="location"></h2><p id="order-note"></p></div>
-          <div class="order-controls">
-            <label>Order <select id="mission-kind"></select></label>
-            <label id="meal-option" hidden><input id="meal" type="checkbox"> Pack a team meal</label>
-            <button id="dispatch" class="primary">Dispatch team</button>
-            <button id="inspect-tile" type="button">Inspect tile</button>
-          </div>
+        <section class="orders" aria-label="Map selection">
+          <div><p class="eyebrow">SELECTED LOCATION</p><h2 id="location"></h2></div>
+          <button id="inspect-tile" type="button">Inspect tile</button>
         </section>
-        <canvas id="board" tabindex="0" aria-label="Frontier map. Use arrow keys to select a tile and Enter to dispatch." aria-describedby="location"></canvas>
+        <canvas id="board" tabindex="0" aria-label="Frontier map. Use arrow keys to select a tile and Enter to inspect." aria-describedby="location"></canvas>
         <p id="loading" role="status">Lighting the camp…</p>
         <div class="bar legend"><span>Gold selects · Blue marks the Totem ward</span><span>Double-click a revealed tile for activity</span></div>
         <section class="panel workshops">
@@ -37,24 +32,49 @@
       <aside>
         <section class="panel">
           <p class="eyebrow">01 / FORM A TEAM</p>
-          <p class="hint">Select two or more NPCs. Open a portrait to inspect stats and equipment.</p>
+          <p id="recruit-status" class="hint"></p>
+          <p class="hint">Choose at least two available recruits.</p>
           <div id="party"></div>
-          <button id="recruit">Welcome a recruit</button>
+          <form id="team-form">
+            <label for="team-name">Team name</label>
+            <input id="team-name" maxlength="32" required>
+            <button id="create-team" class="primary">Save team</button>
+            <p id="team-error" class="hint" role="status"></p>
+          </form>
+          <button id="upgrade-pool">Expand recruit pool</button>
         </section>
         <section class="panel">
-          <p class="eyebrow">02 / TOTEM &amp; SUPPLIES</p>
+          <p class="eyebrow">02 / CUSTOM TEAMS</p>
+          <div id="teams"></div>
+        </section>
+        <section class="panel">
+          <p class="eyebrow">03 / TOTEM &amp; SUPPLIES</p>
           <p id="supplies"></p>
           <p id="upgrade-note"></p>
           <button id="upgrade" class="primary"></button>
         </section>
         <section class="panel journal">
-          <p class="eyebrow">03 / CAMP JOURNAL</p>
+          <p class="eyebrow">04 / CAMP JOURNAL</p>
           <ol id="log" aria-live="polite"></ol>
         </section>
       </aside>
     </div>
-    <footer><span>Select a tile, form a team, and dispatch. Your camp saves on this device.</span><button id="reset">Start over</button></footer>
+    <footer><span>Open a custom team to set its mission and dispatch. Your camp saves on this device.</span><button id="reset">Start over</button></footer>
   </main>
+  <dialog id="team-dialog" aria-labelledby="team-title">
+    <form method="dialog"><button class="close" aria-label="Close team window">Close</button></form>
+    <h2 id="team-title"></h2>
+    <p id="team-status"></p>
+    <div id="team-members"></div>
+    <div class="order-controls team-orders">
+      <label>Destination <select id="mission-tile"></select></label>
+      <label>Order <select id="mission-kind"></select></label>
+      <label id="meal-option" hidden><input id="meal" type="checkbox"> Pack a team meal</label>
+      <button id="save-order" type="button">Save order</button>
+      <button id="dispatch" class="primary" type="button">Dispatch team</button>
+    </div>
+    <p id="order-note" role="status"></p>
+  </dialog>
   <dialog id="tile-dialog">
     <form method="dialog"><button class="close" aria-label="Close tile activity">Close</button></form>
     <h2 id="tile-title">Tile activity</h2>

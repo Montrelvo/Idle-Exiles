@@ -5,6 +5,8 @@ const recruits = [
   ["Mara", 3863], ["Ivo", 3819], ["Sable", 3805], ["Rowan", 3938],
   ["Tess", 3863], ["Neri", 3819], ["Bryn", 3805], ["Orin", 3938],
 ];
+const recruitInterval = 30000;
+const maxPool = 12;
 export const buildings = {
   smith: { name: "Smith", timber: 3, stone: 3, recipes: {
     sword: { ore: 3 }, shield: { ore: 2 }, helm: { ore: 2 },
@@ -22,13 +24,22 @@ const times = { scout: 7000, gather: 9000, hunt: 12000, claim: 10000, vault: 160
 export const reachable = (game, id) => [home, ...game.outposts].some(anchor => distance(anchor, id) <= game.tier + 1);
 export const frontier = (game, id) => !game.revealed.includes(id) && neighbors(id).some(other => game.revealed.includes(other));
 export const busy = (game, npc) => game.missions.find(mission => mission.npcs.includes(npc));
+function unassigned(game) {
+  const assigned = new Set(game.teams.flatMap(team => team.npcs));
+  return game.roster.flatMap((_, id) => assigned.has(id) ? [] : [id]);
+}
+export const poolSize = game => unassigned(game).length;
+export const availableRecruits = game => unassigned(game).filter(id => game.roster[id].hp > 0 && !busy(game, id));
+export const poolUpgrade = game => game.poolMax < maxPool
+  ? { timber: game.poolMax - 2, stone: game.poolMax - 3 } : null;
 const affordable = (game, price) => game.timber >= price.timber && game.stone >= price.stone;
 const pay = (game, price) => { game.timber -= price.timber; game.stone -= price.stone; };
 
 export function newCamp(seed = Math.floor(Math.random() * 4294967296), now = Date.now()) {
   const random = randomFor(seed ^ 0x4d617261);
   return {
-    version: 2, seed, serial: 0, world: generateWorld(seed), clock: now, nextRecruit: now,
+    version: 3, seed, serial: 0, world: generateWorld(seed), clock: now,
+    teams: [], poolMax: 6, nextRecruit: now + recruitInterval,
     tier: 1, timber: 1, stone: 1, ember: false, roster: recruits.slice(0, 4).map(([name, sprite]) => rollNpc(name, sprite, random)),
     revealed: [home, ...neighbors(home)], outposts: [], missions: [],
     stations: Object.fromEntries(Object.keys(buildings).map(id => [id, { built: false, inventory: {} }])),
@@ -37,7 +48,9 @@ export function newCamp(seed = Math.floor(Math.random() * 4294967296), now = Dat
 }
 
 export function restoreCamp(save, now = Date.now()) {
-  if (save?.version === 2 && save.world?.length === legacyWorld.length && save.roster?.length) return save;
+  if ([2, 3].includes(save?.version) && save.world?.length === legacyWorld.length && save.roster?.length) {
+    return save.version === 3 ? save : migrateTeams(save, now);
+  }
   if (save?.version !== 1 || ![save.revealed, save.outposts, save.missions, save.log].every(Array.isArray)) return null;
   const game = newCamp(undefined, now);
   Object.assign(game, {
@@ -46,6 +59,21 @@ export function restoreCamp(save, now = Date.now()) {
     missions: save.missions.map(order => ({ ...order, buffs: [], seed: game.serial++ + game.seed, legacy: true })),
     log: ["Camp records upgraded. Your map, supplies and outstanding orders were preserved.", ...save.log].slice(0, 10),
   });
+  return migrateTeams(game, now);
+}
+
+function migrateTeams(save, now) {
+  const teams = [];
+  const missions = save.missions.map(mission => {
+    if (mission.npcs.length < 2) return mission;
+    const team = { name: "Expedition " + (teams.length + 1), npcs: [...mission.npcs],
+      order: { tile: mission.id, kind: mission.kind, meal: false } };
+    teams.push(team);
+    return { ...mission, team: teams.length - 1 };
+  });
+  const game = { ...save, version: 3, teams, missions, poolMax: 6, nextRecruit: null };
+  game.poolMax = Math.max(game.poolMax, 2 * Math.ceil(poolSize(game) / 2));
+  scheduleRecruit(game, now);
   return game;
 }
 
@@ -53,12 +81,46 @@ function record(game, message) {
   game.log = [message, ...game.log].slice(0, 10);
 }
 
-export function recruit(game, now) {
-  if (now < game.nextRecruit || game.roster.length >= recruits.length) return false;
-  const [name, sprite] = recruits[game.roster.length];
-  game.roster.push(rollNpc(name, sprite, randomFor(game.seed ^ Math.imul(game.roster.length + 1, 0x9e3779b9))));
-  game.nextRecruit = now + 30000;
-  record(game, name + " found shelter at the Totem.");
+function scheduleRecruit(game, now) {
+  if (poolSize(game) >= game.poolMax) game.nextRecruit = null;
+  else game.nextRecruit ??= now + recruitInterval;
+}
+
+function recruitDue(game, now) {
+  scheduleRecruit(game, now);
+  if (game.nextRecruit === null || now < game.nextRecruit) return false;
+  const arrivals = Math.min(game.poolMax - poolSize(game), 1 + Math.floor((now - game.nextRecruit) / recruitInterval));
+  for (let i = 0; i < arrivals; i++) {
+    const id = game.roster.length;
+    const [base, sprite] = recruits[id % recruits.length];
+    const cycle = Math.floor(id / recruits.length);
+    const name = cycle ? base + " " + (cycle + 1) : base;
+    game.roster.push(rollNpc(name, sprite, randomFor(game.seed ^ Math.imul(id + 1, 0x9e3779b9))));
+    record(game, name + " found shelter at the Totem.");
+  }
+  game.nextRecruit += arrivals * recruitInterval;
+  scheduleRecruit(game, now);
+  return true;
+}
+
+export function upgradePool(game, now) {
+  const price = poolUpgrade(game);
+  if (!price || !affordable(game, price)) return false;
+  pay(game, price);
+  game.poolMax += 2;
+  scheduleRecruit(game, now);
+  record(game, "The camp can shelter " + game.poolMax + " unassigned recruits.");
+  return true;
+}
+
+export function createTeam(game, name, members, now) {
+  name = name.trim();
+  if (!name || name.length > 32 || game.teams.some(team => team.name.toLowerCase() === name.toLowerCase())) return false;
+  const available = new Set(availableRecruits(game));
+  if (members.length < 2 || new Set(members).size !== members.length || members.some(id => !available.has(id))) return false;
+  game.teams.push({ name, npcs: [...members], order: null });
+  scheduleRecruit(game, now);
+  record(game, name + " formed at the Totem.");
   return true;
 }
 
@@ -95,7 +157,18 @@ export function missionFor(game, id, members, kind, meal = false) {
   return { kind, duration: Math.max(3000, times[kind] - best * 350) };
 }
 
-export function dispatch(game, id, members, kind, meal, now) {
+export function setTeamOrder(game, index, tile, kind, meal) {
+  const team = game.teams[index];
+  if (!team || !ordersAt(game, tile).includes(kind) || !reachable(game, tile)) return false;
+  team.order = { tile, kind, meal };
+  return true;
+}
+
+export function dispatchTeam(game, index, now) {
+  const team = game.teams[index];
+  if (!team?.order) return false;
+  const { tile: id, kind, meal } = team.order;
+  const members = team.npcs;
   const order = missionFor(game, id, members, kind, meal);
   if (!order.kind) return false;
   if (kind === "claim") pay(game, { timber: 2, stone: 2 });
@@ -103,8 +176,8 @@ export function dispatch(game, id, members, kind, meal, now) {
   const random = randomFor(seed);
   const leader = members.map(index => game.roster[index]).reduce((best, npc) => skill(npc, "survival") > skill(best, "survival") ? npc : best);
   const buff = meal ? consume(leader, "meal", game.stations.tavern.inventory, random) : 0;
-  game.missions.push({ id, kind, npcs: [...members], buffs: members.map(() => buff), seed, due: now + order.duration });
-  record(game, members.map(index => game.roster[index].name).join(" and ") + " set out. " + missionNames[kind]
+  game.missions.push({ id, kind, team: index, npcs: [...members], buffs: members.map(() => buff), seed, due: now + order.duration });
+  record(game, team.name + " set out. " + missionNames[kind]
     + (meal ? (buff ? " with a stew buff." : ". The stew was wasted.") : "."));
   return true;
 }
@@ -182,7 +255,9 @@ export function resolveDue(game, now) {
     game.missions = game.missions.filter(other => other !== mission);
     finish(game, mission);
   }
-  return regenerate(game, now) || ready.length > 0;
+  const rested = regenerate(game, now);
+  const recruited = recruitDue(game, now);
+  return rested || recruited || ready.length > 0;
 }
 
 export function upgrade(game) {

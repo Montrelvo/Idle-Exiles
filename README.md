@@ -8,7 +8,10 @@ Download the setup executable or portable Windows x64 ZIP from [GitHub Releases]
 
 ## First orders
 
-- Check at least two names in the roster, select a tile, then choose and dispatch an order. With the map focused, use arrows to select a tile and Enter to dispatch.
+- Pick at least two available recruits in **Form a Team**, enter a name, and save. Assigned NPCs stay in their custom team while away and after returning to camp.
+- Open a team under **Custom Teams** to choose a destination and mission. Save the order, then dispatch. An order stays with the team for reuse when it is still valid. The team window also gives you access to its members' packs and equipment.
+- Recruits arrive automatically every 30 seconds while the pool has room, including while the game is closed. The pool starts with six spaces for unassigned NPCs. Spend timber and stone to expand it by two spaces at a time, up to twelve.
+- With the map focused, use arrows to select a tile and Enter to inspect it.
 - Double-click a revealed tile or use **Inspect tile** to see the team working there and the time left on its order.
 - Open an NPC's portrait to see their stats, skills, pack and equipped gear. Use **Unload field resources** after gathering or hunting. Timber and stone go to camp construction. Ore and hides go to the smith, herbs to the apothecary, and monster meat to the tavern.
 - Build the workshops with timber and stone. Craft and take equipment or tonics from workshop stock through the NPC panel. Pack tavern stew when dispatching a team to buff its attacks for that mission.

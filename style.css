@@ -56,3 +56,8 @@ dialog::backdrop { background: #100d0bd6; }
 .stat-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(155px, 1fr)); gap: 5px 12px; }
 .stat-grid > span { color: #d4bd9d; font-size: .87rem; }
 .detail-row { display: flex; flex-wrap: wrap; gap: 4px; align-items: center; justify-content: space-between; border-bottom: 1px solid #504135; }
+.team-orders, #team-form { margin: 12px 0; }
+#team-form { display: grid; gap: 6px; }
+#team-form input { font: inherit; background: #272522; color: inherit; border: 1px solid #57493b; padding: 6px; min-width: 0; }
+#team-members button { margin: 8px 5px 0 0; }
+#team-status { margin-bottom: 8px; }

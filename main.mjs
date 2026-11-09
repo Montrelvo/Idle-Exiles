@@ -1,32 +1,38 @@
 import {
-  build, buildings, busy, craft, describe, dispatch, equip, frontier, missionFor, missionNames,
-  newCamp, ordersAt, reachable, recruit, resolveDue, restoreCamp, returnItem, take, unequip, unload, upgrade, upgrades, useTonic,
+  availableRecruits, build, buildings, busy, craft, createTeam, describe, dispatchTeam, equip, frontier, missionFor, missionNames,
+  newCamp, ordersAt, poolSize, poolUpgrade, reachable, resolveDue, restoreCamp, returnItem, setTeamOrder,
+  take, unequip, unload, upgrade, upgradePool, upgrades, useTonic,
 } from "./camp.mjs";
 import { capacity, items, maxHp, maxMp, skill, skills, slots, stats, weight } from "./rules.mjs";
 import { height, home, protectedTile, terrain, tileAt, width } from "./world.mjs";
 
 const atlas = "./assets/ProjectUtumno_full.png";
-const storageKey = "idle-exiles-camp-v1";
+const storageKey = "idle-exiles-camp-v3";
 const byId = id => document.getElementById(id);
 const canvas = byId("board");
 const Phaser = globalThis.Phaser;
 const tileSize = 32;
-const initialTeam = () => new Set([0, 1]);
 let game = loadCamp();
 let selected = home;
-let members = initialTeam();
+const members = new Set();
+let activeTeam = null;
+let teamTarget = null;
 let inspectedNpc = null;
 let inspectedTile = null;
 let paint;
 let party = [];
+let previousPool;
+let teamButtons = [];
 let previousLog;
 let previousStations;
 let previousLoadout;
 let previousOrders;
+let previousTargets;
 
 function loadCamp() {
   try {
-    const save = restoreCamp(JSON.parse(localStorage.getItem(storageKey)));
+    const stored = localStorage.getItem(storageKey) ?? localStorage.getItem("idle-exiles-camp-v1");
+    const save = restoreCamp(JSON.parse(stored));
     if (save) return save;
   } catch {
     // An unavailable local save should still allow a new camp.
@@ -122,8 +128,16 @@ function action(label, handler, disabled = false) {
   return button;
 }
 
-function populateRoster() {
-  party = game.roster.map((npc, index) => {
+function openNpc(index) {
+  inspectedNpc = index;
+  previousLoadout = null;
+  renderNpc();
+  byId("npc-dialog").showModal();
+}
+
+function populateRoster(ids) {
+  party = ids.map(index => {
+    const npc = game.roster[index];
     const row = element("div", "", "roster-row");
     const check = document.createElement("input");
     check.type = "checkbox";
@@ -140,16 +154,91 @@ function populateRoster() {
     const status = element("span", "", "stats");
     label.append(status);
     button.append(portrait, label);
-    button.onclick = () => {
-      inspectedNpc = index;
-      previousLoadout = null;
-      renderNpc();
-      byId("npc-dialog").showModal();
-    };
+    button.onclick = () => openNpc(index);
     row.append(check, button);
-    return { row, check, status };
+    return { index, row, check, status };
   });
-  byId("party").replaceChildren(...party.map(entry => entry.row));
+  byId("party").replaceChildren(...(party.length ? party.map(entry => entry.row)
+    : [element("p", "No recruits available yet.", "hint")]));
+}
+
+function openTeam(index) {
+  const team = game.teams[index];
+  activeTeam = index;
+  teamTarget = team.order?.tile ?? selected;
+  previousTargets = null;
+  previousOrders = null;
+  byId("meal").checked = Boolean(team.order?.meal);
+  byId("team-title").textContent = team.name;
+  byId("team-members").replaceChildren(...team.npcs.map(id => {
+    const button = element("button", game.roster[id].name);
+    button.type = "button";
+    button.onclick = () => openNpc(id);
+    return button;
+  }));
+  renderTeam(Date.now(), team.order?.kind);
+  byId("team-dialog").showModal();
+}
+
+function teamActivity(index, now) {
+  const mission = game.missions.find(order => order.team === index);
+  return mission ? missionNames[mission.kind] + " · " + secondsLeft(mission.due, now) + "s remaining" : "At camp";
+}
+
+function renderTeams(now) {
+  if (teamButtons.length !== game.teams.length) {
+    teamButtons = game.teams.map((team, index) => {
+      const button = element("button", "", "member");
+      const title = element("span", team.name);
+      const status = element("span", "", "stats");
+      title.append(status);
+      button.append(title);
+      button.onclick = () => openTeam(index);
+      return { button, status };
+    });
+    byId("teams").replaceChildren(...teamButtons.map(entry => entry.button));
+  }
+  if (!teamButtons.length && !byId("teams").hasChildNodes()) byId("teams").append(element("p", "No saved teams yet.", "hint"));
+  teamButtons.forEach(({ status }, index) => {
+    status.textContent = game.teams[index].npcs.length + " NPCs · " + teamActivity(index, now);
+  });
+}
+
+function renderTeam(now, preferredKind) {
+  if (activeTeam === null) return;
+  const team = game.teams[activeTeam];
+  const target = byId("mission-tile");
+  const selectable = game.world.flatMap((_, id) => ordersAt(game, id).length && reachable(game, id) ? [id] : []);
+  const targets = selectable.includes(teamTarget) ? selectable : [teamTarget, ...selectable];
+  const targetSignature = targets.map(id => id + ":" + describe(game, id)).join("|");
+  if (targetSignature !== previousTargets) {
+    previousTargets = targetSignature;
+    target.replaceChildren(...targets.map(id => new Option(
+      describe(game, id) + " · " + (id % width + 1) + ", " + (Math.floor(id / width) + 1)
+        + (id === selected ? " (map selection)" : ""), String(id),
+    )));
+  }
+  target.value = String(teamTarget);
+  const kinds = ordersAt(game, teamTarget);
+  const select = byId("mission-kind");
+  const orderSignature = teamTarget + ":" + kinds.join(",");
+  if (orderSignature !== previousOrders) {
+    const previous = preferredKind ?? select.value;
+    previousOrders = orderSignature;
+    select.replaceChildren(...(kinds.length ? kinds.map(kind => new Option(labels[kind], kind)) : [new Option("No orders", "")]));
+    if (kinds.includes(previous)) select.value = previous;
+  }
+  const meal = byId("meal");
+  const mealAvailable = game.stations.tavern.built && Boolean(game.stations.tavern.inventory.meal);
+  byId("meal-option").hidden = !mealAvailable && !meal.checked;
+  const saved = team.order?.tile === teamTarget && team.order?.kind === select.value && team.order?.meal === meal.checked;
+  const valid = kinds.includes(select.value) && reachable(game, teamTarget);
+  const order = missionFor(game, teamTarget, team.npcs, select.value, meal.checked);
+  byId("team-status").textContent = teamActivity(activeTeam, now);
+  byId("save-order").disabled = !valid || saved;
+  byId("dispatch").disabled = !saved || !order.kind;
+  byId("order-note").textContent = valid && !saved ? "Save this order before dispatching."
+    : order.reason ?? "Saved order · returns in about " + Math.ceil(order.duration / 1000) + "s";
 }
 
 function renderNpc() {
@@ -220,7 +309,8 @@ function renderTile(now) {
   const mission = game.missions.find(order => order.id === inspectedTile);
   byId("tile-title").textContent = describe(game, inspectedTile);
   byId("tile-activity").textContent = mission
-    ? mission.npcs.map(id => game.roster[id].name).join(" + ") + " · " + missionNames[mission.kind] + " · " + secondsLeft(mission.due, now) + "s remaining."
+    ? (game.teams[mission.team]?.name ?? mission.npcs.map(id => game.roster[id].name).join(" + "))
+      + " · " + missionNames[mission.kind] + " · " + secondsLeft(mission.due, now) + "s remaining."
     : (protectedTile(inspectedTile) ? "Within the Totem ward. Monsters cannot enter. " : "") + "No team working here.";
 }
 
@@ -233,34 +323,28 @@ function inspectTile() {
 
 function refresh(now) {
   paint?.();
-  if (party.length !== game.roster.length) populateRoster();
-  party.forEach(({ check, status }, index) => {
+  const available = availableRecruits(game);
+  const signature = available.join(",");
+  if (signature !== previousPool) {
+    previousPool = signature;
+    for (const id of members) if (!available.includes(id)) members.delete(id);
+    populateRoster(available);
+  }
+  party.forEach(({ index, check, status }) => {
     const npc = game.roster[index];
-    const mission = busy(game, index);
     check.checked = members.has(index);
-    status.textContent = mission ? missionNames[mission.kind] + " · " + secondsLeft(mission.due, now) + "s"
-      : "At camp · " + npc.hp + " HP / " + npc.mp + " MP · " + weight(npc) + "/" + capacity(npc) + " wt";
+    status.textContent = npc.hp + " HP / " + npc.mp + " MP · " + weight(npc) + "/" + capacity(npc) + " wt";
   });
-  byId("recruit").disabled = game.roster.length >= 8 || now < game.nextRecruit;
-  byId("recruit").textContent = game.roster.length >= 8 ? "Camp roster full" : now < game.nextRecruit
-    ? "Next recruit in " + secondsLeft(game.nextRecruit, now) + "s" : "Welcome a recruit";
+  byId("create-team").disabled = members.size < 2;
+  byId("recruit-status").textContent = poolSize(game) + "/" + game.poolMax + " recruit spaces filled · "
+    + (game.nextRecruit === null ? "Pool full" : "Next arrival in " + secondsLeft(game.nextRecruit, now) + "s");
+  const expansion = poolUpgrade(game);
+  byId("upgrade-pool").disabled = !expansion || !canPay(expansion);
+  byId("upgrade-pool").textContent = expansion
+    ? "Add 2 spaces · " + expansion.timber + " timber / " + expansion.stone + " stone" : "Recruit pool fully expanded";
   byId("survey").textContent = game.revealed.length + " / " + game.world.length + " charted";
   byId("location").textContent = describe(game, selected);
   byId("inspect-tile").disabled = !game.revealed.includes(selected);
-  const orders = ordersAt(game, selected);
-  const select = byId("mission-kind");
-  const orderSignature = selected + orders.join(",");
-  if (orderSignature !== previousOrders) {
-    previousOrders = orderSignature;
-    select.replaceChildren(...(orders.length ? orders.map(kind => new Option(labels[kind], kind)) : [new Option("No orders", "")]));
-  }
-  select.disabled = !orders.length;
-  const mealAvailable = game.stations.tavern.built && Boolean(game.stations.tavern.inventory.meal);
-  byId("meal-option").hidden = !mealAvailable;
-  if (!mealAvailable) byId("meal").checked = false;
-  const order = missionFor(game, selected, [...members], select.value, byId("meal").checked);
-  byId("dispatch").disabled = !order.kind;
-  byId("order-note").textContent = order.reason ?? members.size + " NPCs · returns in about " + Math.ceil(order.duration / 1000) + "s";
   byId("supplies").textContent = "Tier " + game.tier + " · " + game.timber + " timber · " + game.stone + " stone · " + game.outposts.length
     + (game.outposts.length === 1 ? " outpost" : " outposts") + (game.ember ? " · Ember recovered" : "");
   const next = upgrades[game.tier - 1];
@@ -277,6 +361,8 @@ function refresh(now) {
     byId("log").replaceChildren(...game.log.map(message => element("li", message)));
   }
   renderStations();
+  renderTeams(now);
+  renderTeam(now);
   renderNpc();
   renderTile(now);
 }
@@ -311,7 +397,7 @@ try {
   canvas.addEventListener("keydown", event => {
     if (event.key === "Enter") {
       event.preventDefault();
-      byId("dispatch").click();
+      inspectTile();
       return;
     }
     const offset = { ArrowRight: [1, 0], ArrowDown: [0, 1], ArrowLeft: [-1, 0], ArrowUp: [0, -1] }[event.key];
@@ -324,20 +410,38 @@ try {
     tick();
   });
   byId("mission-kind").onchange = tick;
+  byId("mission-tile").onchange = event => { teamTarget = Number(event.target.value); tick(); };
   byId("meal").onchange = tick;
   byId("inspect-tile").onclick = inspectTile;
   byId("tile-dialog").onclose = () => { inspectedTile = null; };
   byId("npc-dialog").onclose = () => { inspectedNpc = null; };
-  byId("dispatch").onclick = () => mutate(now => dispatch(game, selected, [...members], byId("mission-kind").value, byId("meal").checked, now));
+  byId("team-dialog").onclose = () => { activeTeam = null; };
+  byId("team-form").onsubmit = event => {
+    event.preventDefault();
+    const name = byId("team-name");
+    mutate(now => {
+      if (!createTeam(game, name.value, [...members], now)) {
+        byId("team-error").textContent = "Choose two available recruits and a unique team name.";
+        return false;
+      }
+      name.value = "";
+      byId("team-error").textContent = "";
+      members.clear();
+      return true;
+    });
+  };
+  byId("save-order").onclick = () => mutate(() => setTeamOrder(game, activeTeam, teamTarget, byId("mission-kind").value, byId("meal").checked));
+  byId("dispatch").onclick = () => mutate(now => dispatchTeam(game, activeTeam, now));
   byId("upgrade").onclick = () => mutate(() => upgrade(game));
-  byId("recruit").onclick = () => mutate(now => recruit(game, now));
+  byId("upgrade-pool").onclick = () => mutate(now => upgradePool(game, now));
   byId("reset").onclick = () => {
     if (!confirm("Start over and replace this camp?")) return;
     game = newCamp();
     selected = home;
-    members = initialTeam();
-    party = [];
-    previousOrders = null;
+    members.clear();
+    previousPool = null;
+    byId("team-form").reset();
+    byId("team-error").textContent = "";
     saveCamp();
     tick();
   };
