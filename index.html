@@ -19,16 +19,27 @@
         <div class="bar"><h2>The Uncharted Reach</h2><span id="survey"></span></div>
         <section class="orders" aria-label="Expedition orders">
           <div><p class="eyebrow">SELECTED LOCATION</p><h2 id="location"></h2><p id="order-note"></p></div>
-          <button id="dispatch" class="primary">Dispatch</button>
+          <div class="order-controls">
+            <label>Order <select id="mission-kind"></select></label>
+            <label id="meal-option" hidden><input id="meal" type="checkbox"> Pack a team meal</label>
+            <button id="dispatch" class="primary">Dispatch team</button>
+            <button id="inspect-tile" type="button">Inspect tile</button>
+          </div>
         </section>
         <canvas id="board" tabindex="0" aria-label="Frontier map. Use arrow keys to select a tile and Enter to dispatch." aria-describedby="location"></canvas>
         <p id="loading" role="status">Lighting the camp…</p>
-        <div class="bar legend"><span>✦ Gold square marks your selection</span><span>Scout the edge of the fog</span></div>
+        <div class="bar legend"><span>Gold selects · Blue marks the Totem ward</span><span>Double-click a revealed tile for activity</span></div>
+        <section class="panel workshops">
+          <p class="eyebrow">CAMP WORKSHOPS</p>
+          <div id="stations"></div>
+        </section>
       </section>
       <aside>
         <section class="panel">
-          <p class="eyebrow">01 / CAMP ROSTER</p>
+          <p class="eyebrow">01 / FORM A TEAM</p>
+          <p class="hint">Select two or more NPCs. Open a portrait to inspect stats and equipment.</p>
           <div id="party"></div>
+          <button id="recruit">Welcome a recruit</button>
         </section>
         <section class="panel">
           <p class="eyebrow">02 / TOTEM &amp; SUPPLIES</p>
@@ -42,8 +53,19 @@
         </section>
       </aside>
     </div>
-    <footer><span>Select a tile, choose an NPC, and dispatch. Your camp saves on this device.</span><button id="reset">Start over</button></footer>
+    <footer><span>Select a tile, form a team, and dispatch. Your camp saves on this device.</span><button id="reset">Start over</button></footer>
   </main>
+  <dialog id="tile-dialog">
+    <form method="dialog"><button class="close" aria-label="Close tile activity">Close</button></form>
+    <h2 id="tile-title">Tile activity</h2>
+    <p id="tile-activity"></p>
+  </dialog>
+  <dialog id="npc-dialog">
+    <form method="dialog"><button class="close" aria-label="Close NPC details">Close</button></form>
+    <h2 id="npc-title"></h2>
+    <p id="npc-vitals"></p>
+    <div id="npc-loadout"></div>
+  </dialog>
   <script src="./node_modules/phaser/dist/phaser.min.js"></script>
   <script type="module" src="./main.mjs"></script>
 </body>

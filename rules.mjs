@@ -1,119 +1,111 @@
-export const map = [
-  "#################",
-  "#...#.....#....>#",
-  "#...#.....#.....#",
-  "#...#..#..#..#..#",
-  "#......#.....#..#",
-  "#......###.#....#",
-  "#..A.......#..C.#",
-  "#......#...#....#",
-  "#......#........#",
-  "#......#...#....#",
-  "#################",
-];
+export const stats = {
+  con: "Constitution", str: "Strength", dex: "Dexterity", int: "Intelligence", wis: "Wisdom",
+};
+export const skills = {
+  scouting: ["Scouting", "dex"], gathering: ["Gathering", "str"],
+  melee: ["Weapon handling", "str"], defense: ["Defense", "dex"],
+  arcana: ["Arcana", "int"], medicine: ["Medicine", "wis"], survival: ["Survival", "con"],
+};
+export const slots = {
+  head: "Head", body: "Torso", mainHand: "Main hand", offHand: "Off hand",
+  hands: "Hands", legs: "Legs", feet: "Feet",
+};
+export const items = {
+  timber: { name: "Timber", weight: 2, store: "stockpile" },
+  stone: { name: "Stone", weight: 3, store: "stockpile" },
+  ore: { name: "Ore", weight: 2, store: "smith" },
+  hide: { name: "Hide", weight: 1, store: "smith" },
+  herb: { name: "Herbs", weight: 1, store: "apothecary" },
+  meat: { name: "Monster meat", weight: 1, store: "tavern" },
+  sword: { name: "Forged blade", weight: 4, slot: "mainHand", skill: "melee", power: 8, store: "smith" },
+  vest: { name: "Hide vest", weight: 3, slot: "body", skill: "defense", power: 3, store: "smith" },
+  shield: { name: "Iron shield", weight: 4, slot: "offHand", skill: "defense", power: 2, store: "smith" },
+  helm: { name: "Iron helm", weight: 2, slot: "head", skill: "defense", power: 1, store: "smith" },
+  gloves: { name: "Hide gloves", weight: 1, slot: "hands", skill: "defense", power: 1, store: "smith" },
+  greaves: { name: "Hide greaves", weight: 2, slot: "legs", skill: "defense", power: 1, store: "smith" },
+  boots: { name: "Hide boots", weight: 2, slot: "feet", skill: "defense", power: 1, store: "smith" },
+  tonic: { name: "Restorative tonic", weight: 1, skill: "medicine", power: 14, store: "apothecary" },
+  meal: { name: "Hunter’s stew", weight: 1, skill: "survival", power: 3, store: "tavern" },
+};
 
-export const directions = [[1, 0], [0, 1], [-1, 0], [0, -1]];
-export const distance = (a, b) => Math.abs(a.x - b.x) + Math.abs(a.y - b.y);
-const tile = ({ x, y }) => map[y]?.[x] ?? "#";
-
-export function newEncounter() {
-  return {
-    party: [
-      { name: "Mara", role: "Vanguard", x: 14, y: 8, maxHp: 26, apMax: 4, damage: 7, maxSp: 0 },
-      { name: "Ivo", role: "Arcanist", x: 13, y: 8, maxHp: 17, apMax: 4, damage: 4, maxSp: 8 },
-      { name: "Sable", role: "Warden", x: 15, y: 8, maxHp: 20, apMax: 4, damage: 5, maxSp: 8 },
-    ].map(pc => ({ ...pc, hp: pc.maxHp, ap: pc.apMax, sp: pc.maxSp, parry: false })),
-    foes: [
-      { name: "Vault guard", x: 14, y: 7, hp: 20, damage: 6 },
-    ],
-    outcome: null,
-  };
+export const maxHp = npc => 12 + 4 * npc.stats.con;
+export const maxMp = npc => 2 * npc.stats.int;
+export const capacity = npc => 6 + 2 * npc.stats.str + npc.stats.con;
+export function weight(npc) {
+  return Object.entries(npc.pack).reduce((sum, [id, count]) => sum + items[id].weight * count, 0)
+    + Object.values(npc.equipment).reduce((sum, id) => sum + items[id].weight, 0);
+}
+export const skill = (npc, id) => Math.min(12, Math.floor(npc.stats[skills[id][1]] * .75) + Math.floor((npc.practice[id] ?? 0) / 3));
+export const train = (npc, id, amount = 1) => { npc.practice[id] = (npc.practice[id] ?? 0) + amount; };
+export const add = (inventory, id, count = 1) => { inventory[id] = (inventory[id] ?? 0) + count; };
+export function remove(inventory, id, count = 1) {
+  inventory[id] -= count;
+  if (inventory[id] === 0) delete inventory[id];
 }
 
-function occupied(game, pos) {
-  return [...game.party, ...game.foes].find(actor => actor.hp > 0 && distance(actor, pos) === 0);
+export function rollNpc(name, sprite, random) {
+  const values = Object.fromEntries(Object.keys(stats).map(id => [id, 3 + Math.floor(random() * 6)]));
+  const npc = { name, sprite, stats: values, practice: {}, pack: {}, equipment: {} };
+  return { ...npc, hp: maxHp(npc), mp: maxMp(npc) };
 }
 
-function hit(target, damage) {
-  const amount = target.parry ? Math.ceil(damage / 2) : damage;
-  target.hp = Math.max(0, target.hp - amount);
+function proficiency(npc, id) {
+  const level = skill(npc, items[id].skill);
+  return level < 4 ? .5 : level >= 8 ? 1.5 : 1;
 }
 
-function usable(game, pc) {
-  return !game.outcome && pc?.hp > 0 && pc.ap > 0;
+export function consume(npc, id, inventory, random) {
+  if (!inventory[id] || !["tonic", "meal"].includes(id)) return null;
+  remove(inventory, id);
+  const factor = proficiency(npc, id);
+  train(npc, items[id].skill);
+  if (factor < 1 && random() < .5) return 0;
+  return Math.round(items[id].power * factor);
 }
 
-export function act(game, pc, pos) {
-  if (!usable(game, pc) || distance(pc, pos) !== 1 || tile(pos) === "#") return;
-  const target = occupied(game, pos);
-  if (target) {
-    if (!game.foes.includes(target)) return;
-    pc.ap = Math.max(0, pc.ap - 4);
-    hit(target, pc.damage);
-    return;
-  }
-  Object.assign(pc, pos);
-  pc.ap--;
+export function damageTaken(npc, amount, magic, random) {
+  const { str, dex, wis } = npc.stats;
+  const defense = skill(npc, "defense");
+  if (magic) return Math.max(1, amount - Math.floor(wis * .6));
+  if (random() < Math.min(.35, dex * .025)) return 0;
+  const gear = Object.values(npc.equipment).filter(id => items[id].skill === "defense");
+  const armor = gear.reduce((sum, id) => sum + items[id].power * proficiency(npc, id), Math.floor(str / 3));
+  const reaction = random();
+  const block = Math.min(.3, str * .025 + defense * .008);
+  const deflect = Math.min(.3, dex * .025 + defense * .008);
+  const reduction = reaction < block ? Math.ceil(str / 2) : reaction < block + deflect ? Math.ceil(dex / 3) : 0;
+  return Math.max(1, Math.round(amount - armor - reduction));
 }
 
-function path(start, goal, canEnter, limit = Infinity) {
-  const queue = [{ x: start.x, y: start.y, depth: 0, first: null }];
-  const seen = new Set([`${start.x},${start.y}`]);
-  for (const cell of queue) {
-    if (distance(cell, goal) === 0) return cell;
-    if (cell.depth >= limit) continue;
-    for (const [dx, dy] of directions) {
-      const next = { x: cell.x + dx, y: cell.y + dy };
-      const key = `${next.x},${next.y}`;
-      if (seen.has(key) || tile(next) === "#" || !canEnter(next)) continue;
-      seen.add(key);
-      queue.push({ ...next, depth: cell.depth + 1, first: cell.first ?? next });
+export function encounter(team, vault, buffs, random) {
+  let enemy = vault ? 46 : 20 + Math.floor(random() * 8);
+  for (let round = 0; round < 8; round++) {
+    for (const [index, npc] of team.entries()) {
+      if (npc.hp <= 0) continue;
+      const blade = npc.equipment.mainHand;
+      const arcana = skill(npc, "arcana");
+      let damage;
+      if (arcana >= 4 && npc.mp >= 2 && (!blade || round % 2 === 0)) {
+        npc.mp -= 2;
+        damage = 3 + Math.floor(npc.stats.int / 2 + arcana / 2);
+        train(npc, "arcana");
+      } else {
+        const factor = blade ? proficiency(npc, blade) : 1;
+        const weapon = blade && (factor >= 1 || random() >= .45) ? items[blade].power * factor : 0;
+        damage = 2 + Math.floor(npc.stats.str / 2 + skill(npc, "melee") / 3 + weapon);
+        train(npc, "melee");
+      }
+      enemy -= damage + (buffs[index] ?? 0);
+      if (enemy <= 0) return true;
+    }
+    const targets = team.filter(npc => npc.hp > 0);
+    if (!targets.length) return false;
+    const target = targets[Math.floor(random() * targets.length)];
+    target.hp = Math.max(0, target.hp - damageTaken(target, vault ? 16 : 11, vault && round % 3 === 2, random));
+    train(target, "defense");
+    if (target.hp > 0 && target.hp < maxHp(target) / 2 && target.pack.tonic) {
+      target.hp = Math.min(maxHp(target), target.hp + consume(target, "tonic", target.pack, random));
     }
   }
-  return null;
-}
-
-export function cast(game, pc, pos) {
-  if (!usable(game, pc) || pc.sp < 2) return false;
-  const target = occupied(game, pos);
-  const healing = pc.role === "Warden";
-  const eligible = healing ? game.party : game.foes;
-  if (!target || !eligible.includes(target) || (healing && target.hp === target.maxHp)) return false;
-  const range = healing ? 3 : 5;
-  if (!path(pc, pos, () => true, range)) return false;
-  pc.ap = Math.max(0, pc.ap - (healing ? 5 : 6));
-  pc.sp -= 2;
-  if (healing) {
-    const amount = Math.min(8, target.maxHp - target.hp);
-    target.hp += amount;
-  } else hit(target, 10);
-  return true;
-}
-
-export function parry(game, pc) {
-  if (!usable(game, pc)) return;
-  pc.ap = 0;
-  pc.parry = true;
-}
-
-export function endRound(game) {
-  if (game.outcome) return;
-  for (const foe of game.foes.filter(foe => foe.hp > 0)) {
-    const routes = game.party.filter(pc => pc.hp > 0).flatMap(pc => {
-      const route = path(foe, pc, pos => !occupied(game, pos) || distance(pos, pc) === 0, 6);
-      return route ? [{ pc, route }] : [];
-    }).sort((a, b) => a.route.depth - b.route.depth);
-    const nearest = routes[0];
-    if (!nearest) continue;
-    if (nearest.route.depth === 1) hit(nearest.pc, foe.damage);
-    else Object.assign(foe, nearest.route.first);
-  }
-  if (game.party.every(pc => pc.hp === 0)) {
-    game.outcome = "Expedition lost";
-    return;
-  }
-  for (const pc of game.party) {
-    pc.ap = pc.hp ? pc.apMax : 0;
-    pc.parry = false;
-  }
+  return false;
 }

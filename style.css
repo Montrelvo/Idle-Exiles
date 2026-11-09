@@ -37,3 +37,22 @@ li { border-top: 1px solid #37302a; padding: 5px 0; }
 li:first-child { color: #f0bc7e; }
 footer { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding-top: 16px; }
 @media (max-width: 760px) { .layout { grid-template-columns: 1fr; } }
+.order-controls { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; }
+.order-controls label, .hint { font-size: .8rem; color: #cbbda7; }
+select { padding: 5px; font: inherit; background: #272522; color: inherit; border: 1px solid #57493b; }
+.hint { margin: 0 0 12px; }
+.roster-row { display: flex; gap: 9px; align-items: center; }
+.roster-row input { accent-color: #d7a262; width: 17px; height: 17px; }
+.roster-row .member { flex: 1; }
+.workshops { border: 0; border-top: 1px solid #504135; border-radius: 0; }
+#stations { display: grid; grid-template-columns: repeat(auto-fit, minmax(175px, 1fr)); gap: 10px; }
+.station { background: #25211c; border: 1px solid #504135; padding: 12px; border-radius: 5px; }
+.station h3 { margin: 0; font: 20px Georgia, serif; }
+.station p { margin: 6px 0; }
+.station button, #npc-loadout button { font-size: .76rem; padding: 5px 7px; margin: 2px; }
+dialog { width: min(570px, 90vw); max-height: 85vh; background: #24201c; color: #e8dfcb; border: 1px solid #a77b53; border-radius: 7px; padding: 20px; }
+dialog::backdrop { background: #100d0bd6; }
+.close { float: right; }
+.stat-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(155px, 1fr)); gap: 5px 12px; }
+.stat-grid > span { color: #d4bd9d; font-size: .87rem; }
+.detail-row { display: flex; flex-wrap: wrap; gap: 4px; align-items: center; justify-content: space-between; border-bottom: 1px solid #504135; }

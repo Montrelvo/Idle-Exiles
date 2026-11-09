@@ -4,6 +4,7 @@
   "main.mjs",
   "camp.mjs",
   "rules.mjs",
+  "world.mjs",
   "assets/ProjectUtumno_full.png",
   "node_modules/phaser/dist/phaser.min.js"
 ]
