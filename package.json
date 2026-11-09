@@ -1,0 +1,8 @@
+{
+  "name": "idle-exiles",
+  "version": "0.1.0",
+  "private": true,
+  "dependencies": {
+    "babylonjs": "8.0.0"
+  }
+}

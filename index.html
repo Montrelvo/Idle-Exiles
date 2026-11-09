@@ -1,0 +1,49 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Idle Exiles — The Totem Camp</title>
+  <link rel="stylesheet" href="./style.css">
+</head>
+<body>
+  <main>
+    <header>
+      <p class="eyebrow">THE TOTEM CAMP / CHRONICLE 01</p>
+      <h1>Idle Exiles</h1>
+      <p>You are the Totem God. From your camp, send your people beyond the firelight.</p>
+    </header>
+    <div class="layout">
+      <section class="vault" aria-label="Frontier map">
+        <div class="bar"><h2>The Uncharted Reach</h2><span id="survey"></span></div>
+        <section class="orders" aria-label="Expedition orders">
+          <div><p class="eyebrow">SELECTED LOCATION</p><h2 id="location"></h2><p id="order-note"></p></div>
+          <button id="dispatch" class="primary">Dispatch</button>
+        </section>
+        <canvas id="board" tabindex="0" aria-label="Frontier map. Use arrow keys to select a tile and Enter to dispatch." aria-describedby="location"></canvas>
+        <p id="loading" role="status">Lighting the camp…</p>
+        <div class="bar legend"><span>✦ Gold square marks your selection</span><span>Scout the edge of the fog</span></div>
+      </section>
+      <aside>
+        <section class="panel">
+          <p class="eyebrow">01 / CAMP ROSTER</p>
+          <div id="party"></div>
+        </section>
+        <section class="panel">
+          <p class="eyebrow">02 / TOTEM &amp; SUPPLIES</p>
+          <p id="supplies"></p>
+          <p id="upgrade-note"></p>
+          <button id="upgrade" class="primary"></button>
+        </section>
+        <section class="panel journal">
+          <p class="eyebrow">03 / CAMP JOURNAL</p>
+          <ol id="log" aria-live="polite"></ol>
+        </section>
+      </aside>
+    </div>
+    <footer><span>Select a tile, choose an NPC, and dispatch. Your camp saves in this browser.</span><button id="reset">Start over</button></footer>
+  </main>
+  <script src="./node_modules/babylonjs/babylon.js"></script>
+  <script type="module" src="./main.mjs"></script>
+</body>
+</html>
