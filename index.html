@@ -3,6 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; img-src 'self' blob: data:">
   <title>Idle Exiles — The Totem Camp</title>
   <link rel="stylesheet" href="./style.css">
 </head>
@@ -41,9 +42,9 @@
         </section>
       </aside>
     </div>
-    <footer><span>Select a tile, choose an NPC, and dispatch. Your camp saves in this browser.</span><button id="reset">Start over</button></footer>
+    <footer><span>Select a tile, choose an NPC, and dispatch. Your camp saves on this device.</span><button id="reset">Start over</button></footer>
   </main>
-  <script src="./node_modules/babylonjs/babylon.js"></script>
+  <script src="./node_modules/phaser/dist/phaser.min.js"></script>
   <script type="module" src="./main.mjs"></script>
 </body>
 </html>

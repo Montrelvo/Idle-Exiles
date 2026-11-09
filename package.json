@@ -1,8 +1,20 @@
 {
   "name": "idle-exiles",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "private": true,
+  "productName": "Idle Exiles",
+  "main": "desktop.cjs",
+  "engines": {
+    "node": ">=22.12.0"
+  },
+  "scripts": {
+    "start": "electron .",
+    "package:win": "node scripts/package-win.mjs"
+  },
   "dependencies": {
-    "babylonjs": "8.0.0"
+    "phaser": "3.90.0"
+  },
+  "devDependencies": {
+    "electron": "45.2.3"
   }
 }

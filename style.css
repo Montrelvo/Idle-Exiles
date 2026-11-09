@@ -13,7 +13,7 @@ header > p:last-child, footer, .legend, #supplies, .stats { color: #bfb29c; }
 .vault, .panel { background: #1b1b1a; border: 1px solid #504135; border-radius: 7px; overflow: hidden; }
 .bar { display: flex; justify-content: space-between; align-items: center; gap: 10px; padding: 12px 16px; }
 #survey { color: #f0b676; font-size: .85rem; }
-#board { display: block; width: 100%; aspect-ratio: 13 / 9; background: #101010; cursor: crosshair; touch-action: manipulation; }
+#board { display: block; width: 100%; height: auto; aspect-ratio: 13 / 9; image-rendering: pixelated; background: #101010; cursor: crosshair; touch-action: manipulation; }
 #loading { padding: 0 16px 12px; color: #f0b676; }
 aside { display: grid; gap: 12px; }
 .panel { padding: 14px; }

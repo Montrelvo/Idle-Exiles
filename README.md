@@ -2,16 +2,21 @@
 
 You are the Totem God, bound to a camp in an uncharted valley. Dispatch people to scout, gather supplies, and build outposts that put more of the world within reach.
 
-## Play locally
+## Play on Windows
 
-From this directory, run:
+Download the Windows x64 ZIP from [GitHub Releases](https://github.com/Montrelvo/Idle-Exiles/releases), extract the entire folder, and run **Idle-Exiles.exe**. Phaser, the atlas, and the desktop runtime are bundled. The desktop game runs offline and keeps its own local save.
+
+## Run from source
+
+With Node.js 22.12 or newer, install dependencies with `npm ci`, then use `npm start` to open the Electron desktop window. On Windows x64, use `npm run package:win` to create the standalone ZIP in `dist/`.
+
+For the browser version, start a local web server from this directory after installing the dependencies:
 
 ```sh
-npm ci
 python -m http.server 8765 --bind 127.0.0.1
 ```
 
-Open [the camp](http://127.0.0.1:8765/) in a WebGL-capable browser.
+Open [the camp](http://127.0.0.1:8765/) in your browser.
 
 ## First orders
 
@@ -19,7 +24,7 @@ Open [the camp](http://127.0.0.1:8765/) in a WebGL-capable browser.
 - Pick an NPC with the roster buttons or keys **1–3**, then use the dispatch button. Ivo scouts fastest and Sable brings back extra supplies.
 - Send workers to the grove and stone seam next to camp to build the Hearth. Scout along the edge of the fog. Build outposts at waystones to extend dispatch range.
 - The Hearth unlocks the vault company. When you find the vault within range, send all three NPCs to retrieve the Ember. Bring it home and upgrade the camp again to awaken the Totem.
-- Expeditions finish at their return time. The browser stores your camp and settles overdue missions when you reopen it.
+- Expeditions finish at their return time. The game saves your camp and settles overdue missions when you reopen it.
 
 ## Sources
 

@@ -7,7 +7,8 @@ const atlas = "./assets/ProjectUtumno_full.png";
 const storageKey = "idle-exiles-camp-v1";
 const byId = id => document.getElementById(id);
 const canvas = byId("board");
-const B = globalThis.BABYLON;
+const Phaser = globalThis.Phaser;
+const tileSize = 32;
 let game = loadCamp();
 let selected = home;
 let activeNpc = 1;
@@ -32,60 +33,58 @@ function saveCamp() {
   }
 }
 
+const tileCenter = index => (index + .5) * tileSize;
+
 function setupScene() {
-  const engine = new B.Engine(canvas, false, {}, true);
-  const scene = new B.Scene(engine);
-  scene.clearColor = new B.Color4(.04, .045, .045, 1);
-  const camera = new B.FreeCamera("frontier", new B.Vector3(0, 0, -12), scene);
-  camera.mode = B.Camera.ORTHOGRAPHIC_CAMERA;
-  camera.orthoLeft = 0;
-  camera.orthoRight = width;
-  camera.orthoTop = 0;
-  camera.orthoBottom = -height;
-  camera.minZ = .1;
-  const sprites = new B.SpriteManager("Project Utumno", atlas, width * height * 3, 32, scene, .01, B.Texture.NEAREST_SAMPLINGMODE);
-
-  function spriteAt(id, name, index, depth) {
-    const sprite = new B.Sprite(name, sprites);
-    sprite.cellIndex = index;
-    sprite.position.set(id % width + .5, -Math.floor(id / width) - .5, depth);
-    return sprite;
-  }
-
-  const tiles = world.flatMap((row, y) => [...row].map((type, x) => {
-    const id = y * width + x;
-    const base = spriteAt(id, "ground", 590, 1);
-    const feature = spriteAt(id, "landmark", terrain[type].tile ?? 0, 0);
-    const trail = spriteAt(id, "dispatch", 0, -1);
-    trail.width = trail.height = .72;
-    trail.position.x += .14;
-    trail.position.y += .14;
-    return { id, type, base, feature, trail };
-  }));
-  const outline = B.MeshBuilder.CreateLines("selection", { points: [
-    [-.45, -.45], [.45, -.45], [.45, .45], [-.45, .45], [-.45, -.45],
-  ].map(([x, y]) => new B.Vector3(x, y, 0)) }, scene);
-  outline.color = new B.Color3(1, .71, .35);
-  engine.runRenderLoop(() => scene.render());
-  new ResizeObserver(() => engine.resize()).observe(canvas);
-  scene.executeWhenReady(() => { byId("loading").hidden = true; });
-
-  return () => {
-    for (const { id, type, base, feature, trail } of tiles) {
-      const known = game.revealed.includes(id);
-      const border = frontier(game, id) && reachable(game, id);
-      const outpost = game.outposts.includes(id);
-      const glow = known ? .7 + ((id * 5) % 7) * .035 : border ? .24 : .105;
-      base.cellIndex = known ? (type === "S" || type === "V" ? 257 : 590) : 1149;
-      base.color = new B.Color4(glow, glow, glow, 1);
-      feature.isVisible = known && terrain[type].tile !== undefined;
-      feature.cellIndex = outpost ? 1358 : terrain[type].tile ?? 0;
-      const mission = game.missions.find(order => order.id === id);
-      trail.isVisible = Boolean(mission);
-      if (mission) trail.cellIndex = roster[mission.npcs[0]].sprite;
-    }
-    outline.position.set(selected % width + .5, -Math.floor(selected / width) - .5, -2);
-  };
+  new Phaser.Game({
+    type: Phaser.CANVAS,
+    canvas,
+    width: width * tileSize,
+    height: height * tileSize,
+    pixelArt: true,
+    input: false,
+    audio: { noAudio: true },
+    backgroundColor: "#101010",
+    scene: {
+      preload() {
+        this.load.on("loaderror", () => {
+          byId("loading").textContent = "The terrain atlas could not be loaded.";
+        });
+        this.load.spritesheet("atlas", atlas, { frameWidth: tileSize, frameHeight: tileSize });
+      },
+      create() {
+        if (!this.textures.exists("atlas")) return;
+        const tiles = world.flatMap((row, y) => [...row].map((type, x) => {
+          const cx = tileCenter(x);
+          const cy = tileCenter(y);
+          const base = this.add.image(cx, cy, "atlas", 590);
+          const shade = this.add.rectangle(cx, cy, tileSize, tileSize, 0x000000);
+          const feature = this.add.image(cx, cy, "atlas", terrain[type].tile ?? 0);
+          const trail = this.add.image(cx + 4, cy - 4, "atlas", 0).setScale(.72);
+          return { id: y * width + x, type, base, shade, feature, trail };
+        }));
+        const outline = this.add.rectangle(0, 0, tileSize - 3, tileSize - 3).setStrokeStyle(1, 0xffb559);
+        paint = () => {
+          for (const { id, type, base, shade, feature, trail } of tiles) {
+            const known = game.revealed.includes(id);
+            const border = frontier(game, id) && reachable(game, id);
+            const outpost = game.outposts.includes(id);
+            const glow = known ? .7 + ((id * 5) % 7) * .035 : border ? .24 : .105;
+            base.setFrame(known ? (type === "S" || type === "V" ? 257 : 590) : 1149);
+            shade.setAlpha(1 - glow);
+            feature.setVisible(known && terrain[type].tile !== undefined);
+            feature.setFrame(outpost ? 1358 : terrain[type].tile ?? 0);
+            const mission = game.missions.find(order => order.id === id);
+            trail.setVisible(Boolean(mission));
+            if (mission) trail.setFrame(roster[mission.npcs[0]].sprite);
+          }
+          outline.setPosition(tileCenter(selected % width), tileCenter(Math.floor(selected / width)));
+        };
+        tick();
+        byId("loading").hidden = true;
+      },
+    },
+  });
 }
 
 const partyButtons = roster.map((npc, index) => {
@@ -155,7 +154,7 @@ function tick() {
 }
 
 try {
-  paint = setupScene();
+  setupScene();
   canvas.addEventListener("pointerup", event => {
     const rect = canvas.getBoundingClientRect();
     const x = Math.floor((event.clientX - rect.left) * width / rect.width);
@@ -202,6 +201,6 @@ try {
   tick();
   setInterval(tick, 1000);
 } catch (error) {
-  byId("loading").textContent = "The frontier needs WebGL and the installed Babylon.js dependency.";
+  byId("loading").textContent = "Phaser could not start the frontier map.";
   console.error(error);
 }
